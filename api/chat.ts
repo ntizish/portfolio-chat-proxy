@@ -35,8 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // CORS — replace with your actual Framer domain in production
     // e.g. "https://yoursite.framer.website" or your custom domain
     const allowedOrigins = [
-        "https://precious-people-082954.framer.app", 
-        "http://localhost:3000",              // for local testing
+        "https://dddanil.framer.website", 
+        "http://localhost:3000",
+        "https://www.dddanil.com"             
     ]
 
     const origin = req.headers.origin || ""
