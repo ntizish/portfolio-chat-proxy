@@ -37,7 +37,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const allowedOrigins = [
         "http://localhost:3000",
         "https://www.dddanil.com",
-        "https://dddanil.com/"             
+        "https://dddanil.com/",
+        "https://dddanil.com"             
     ]
 
     const origin = req.headers.origin || ""
