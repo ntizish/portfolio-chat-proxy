@@ -1,4 +1,4 @@
-import * as AnthropicSDK from "@anthropic-ai/sdk"
+import Anthropic from "@anthropic-ai/sdk"
 import { Latitude, capture } from "@latitude-data/telemetry"
 
 const apiKey = process.env.LATITUDE_API_KEY
@@ -9,7 +9,8 @@ export const latitude =
         ? new Latitude({
               apiKey,
               project,
-              instrumentations: { anthropic: AnthropicSDK },
+              // Pass the Anthropic class — the SDK's CJS entry is a callable module object that breaks instrumentation.
+              instrumentations: { anthropic: Anthropic },
           })
         : null
 
