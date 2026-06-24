@@ -3,13 +3,15 @@
     "version": "1.0.0",
     "private": true,
     "scripts": {
-      "dev": "vercel dev"
+        "dev": "vercel dev"
     },
     "dependencies": {
-      "@vercel/node": "^3.0.0"
+        "@anthropic-ai/sdk": "^0.105.0",
+        "@latitude-data/telemetry": "^3.3.0",
+        "@vercel/node": "^3.0.0"
     },
     "devDependencies": {
-      "typescript": "^5.0.0",
-      "@types/node": "^20.0.0"
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
     }
-  }
+}

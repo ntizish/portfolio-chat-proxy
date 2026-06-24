@@ -6,9 +6,15 @@
 // Framer calls THIS endpoint; this function calls Anthropic.
 // =============================================================
 
+import Anthropic from "@anthropic-ai/sdk"
 import type { VercelRequest, VercelResponse } from "@vercel/node"
+import { capture, latitude } from "../lib/latitude"
 
 const SYSTEM_PROMPT = process.env.MASTER_PROMPT || ""
+
+const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+})
 
 // Simple in-memory rate limiter (resets per function cold start)
 // For persistent rate limiting across instances, use Upstash Redis
@@ -31,6 +37,29 @@ function isRateLimited(ip: string): boolean {
     return false
 }
 
+async function handleChat(req: VercelRequest, res: VercelResponse, ip: string) {
+    const { messages } = req.body || {}
+    const trimmedMessages = messages.slice(-10)
+
+    const response = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 512,
+        system: SYSTEM_PROMPT,
+        messages: trimmedMessages,
+    })
+
+    const reply =
+        response.content[0]?.type === "text"
+            ? response.content[0].text
+            : "Sorry, I couldn't generate a response."
+
+    if (latitude) {
+        await latitude.flush()
+    }
+
+    return res.status(200).json({ reply })
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     // CORS — replace with your actual Framer domain in production
     // e.g. "https://yoursite.framer.website" or your custom domain
@@ -38,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "http://localhost:3000",
         "https://www.dddanil.com",
         "https://dddanil.com/",
-        "https://dddanil.com"             
+        "https://dddanil.com"
     ]
 
     const origin = req.headers.origin || ""
@@ -51,7 +80,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "OPTIONS") return res.status(200).end()
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" })
 
-    // Rate limiting
     const ip =
         (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
         req.socket.remoteAddress ||
@@ -61,42 +89,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(429).json({ error: "Too many requests. Please try again later." })
     }
 
-    // Validate body
     const { messages } = req.body || {}
     if (!Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({ error: "Invalid messages format" })
     }
 
-    // Cap conversation history to last 10 messages to control costs
-    const trimmedMessages = messages.slice(-10)
-
     try {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "x-api-key": process.env.ANTHROPIC_API_KEY!,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "claude-haiku-4-5-20251001",
-                max_tokens: 512,
-                system: SYSTEM_PROMPT,
-                messages: trimmedMessages,
-            }),
-        })
+        if (latitude) {
+            await latitude.ready
+            return capture(
+                "portfolio-chat",
+                () => handleChat(req, res, ip),
+                {
+                    metadata: { ip, messageCount: messages.length },
+                    tags: ["portfolio", "framer"],
+                },
+            )
+        }
 
-        if (!response.ok) {
-            const err = await response.json()
-            console.error("Anthropic error:", err)
+        return handleChat(req, res, ip)
+    } catch (err) {
+        if (latitude) {
+            await latitude.flush()
+        }
+
+        if (err instanceof Anthropic.APIError) {
+            console.error("Anthropic error:", err.status, err.message)
             return res.status(502).json({ error: "AI service error" })
         }
 
-        const data = await response.json()
-        const reply = data?.content?.[0]?.text || "Sorry, I couldn't generate a response."
-
-        return res.status(200).json({ reply })
-    } catch (err) {
         console.error("Proxy error:", err)
         return res.status(500).json({ error: "Internal server error" })
     }
