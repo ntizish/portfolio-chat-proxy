@@ -9,7 +9,7 @@ export const latitude =
         ? new Latitude({
               apiKey,
               project,
-              // Pass the Anthropic class — the SDK's CJS entry is a callable module object that breaks instrumentation.
+              // Anthropic clas
               instrumentations: { anthropic: Anthropic },
           })
         : null
